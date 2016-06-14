@@ -7,20 +7,20 @@ var http = require('http'),
     debug = require('debug')('todo-node-postgres:server'),
     querystring = require('querystring');
 
-var router = express.Router();
+var router = express.Router();//вызовов функций промежуточной обработки
 
-var urlencodedParser = bodyParser.urlencoded({ extended: false })
+var urlencodedParser = bodyParser.urlencoded({ extended: false }) //для обработки post запросов
 var connectionString = "postgres://postgres:postgres@localhost:5432/new_db";
 
 
-router.get('/', function(req, res) {
+router.get('/', function(req, res) {   //запрос ответ.
 
-    var tmpl = template.compileFile('./templates/index.html'),
+    var tmpl = template.compileFile('./templates/index.html'), //?????????????
         film_list = [],
         username = getUsernameFromCookie(req);
 
     if (!username){
-        res.redirect('/login');
+        res.redirect('/login'); //переадресация
     }
 
     pg.connect(connectionString, function(err, client, done) {
@@ -35,12 +35,12 @@ router.get('/', function(req, res) {
 
         var user_query = client.query(
             "select *  from users as u "+
-            "where u.name='"+username+"'"
+            "where u.name='"+username+"'" // Мы берем табличку users и присваиваем псевдоним u, после выбираем столбик name и приравниваем его к тому, что ввели в поле
         )
 
-        user_query.on('row', function(row){
+        user_query.on('row', function(row){ // формируем запрос в sql
            user_id = row['id'];
-           var query = client.query('SELECT * FROM movie as m LEFT JOIN likes as l ON l.movie_id = m.id and l.user_id=' + user_id);
+           var query = client.query('SELECT * FROM movie as m LEFT JOIN likes as l ON l.movie_id = m.id and l.user_id=' + user_id);//присваиваем movie псевдоним m, likes =l, выбираем все значения из левой таблицы // 2 таблицы: муви и лайки и соединяются по пользователю и его лайкам, айди вытаскивается при нажатии на ссылку
            query.on('row', function(_row) {
                 film_list.push(_row);
            });
@@ -77,13 +77,13 @@ router.get('/film/:film_id', function(req, res){
         // SQL Query > Select Data
 
         var query = client.query(
-//        "SELECT * FROM movie WHERE id=" + id
-        'SELECT m.id, m.title, m.year, m.rank, m.poster, ARRAY_TO_JSON(ARRAY_AGG(m2.*)) as sim_movies ' +
+//        "SELECT * FROM movie WHERE id=" + id //вытаскиваем все из муви. при нажатии на фильм вытаскивается айди
+        'SELECT m.id, m.title, m.year, m.rank, m.poster, ARRAY_TO_JSON(ARRAY_AGG(m2.*)) as sim_movies ' + 
         'FROM movie as m '+
         'JOIN movie_distance AS md ON md.movie1_id = m.id '+ // AND m1.l1 >0
         'JOIN movie AS m2 ON md.movie2_id = m2.id AND m2.id!=m.id '+
         'WHERE m.id =' + id +
-        ' GROUP BY m.id;'
+        ' GROUP BY m.id;'  //Тут мы считаем расстояние. Везде.
         );
 
         // Stream results back one row at a time
@@ -131,8 +131,8 @@ router.post('/login', urlencodedParser, function(req, res){  // 3 парамет
 
         pg.connect(connectionString, function(err, client, done) {
             var query = client.query(
-                "INSERT INTO users (name) VALUES ('"+name+"') "+
-                "ON CONFLICT ON CONSTRAINT name_unique DO NOTHING;"
+                "INSERT INTO users (name) VALUES ('"+name+"') "+ //ВСТАВЛЯЕМ данные в колонку  name. Вставляем имя из поля
+                "ON CONFLICT ON CONSTRAINT name_unique DO NOTHING;" //проверяем имя на уникальность
             )
 
             query.on('end', function(){
@@ -222,7 +222,7 @@ router.get('/users/:user_id', function(req, res){
                         'film_list': film_list,
                         'target_user': film_list[0].name,
                         'username': getUsernameFromCookie(req)
-                    }
+                   }
                 )
             )
             client.end()
@@ -248,7 +248,7 @@ router.get('/recommendation/users/', function(req, res){
         "join user_distance as ud ON u.id = ud.user1_id " +
         "join users as rec_user ON ud.user2_id = rec_user.id " +
         "where l1 <> 0 and u.name='"+ username +
-        "' order by l2 DESC;"
+        "' order by l2 DESC;" //в обратном порядке
     );
 
     query.on('row', function(row) {
@@ -297,8 +297,8 @@ router.post('/like', urlencodedParser, function(req, res){
                var query = client.query(
                    "INSERT INTO likes (user_id, movie_id, rating) VALUES ("+user_id+","+movie_id+","+value+") "+
                    "ON CONFLICT ON CONSTRAINT likes_pkey DO UPDATE " +
-                   "SET rating="+value+" "+
-                   "WHERE likes.user_id="+user_id+" AND "+" likes.movie_id="+movie_id
+                   "SET rating="+value+" "+                      // Добавляем рейтинг
+                   "WHERE likes.user_id="+user_id+" AND "+" likes.movie_id="+movie_id  //в колонки юзер муви рейтинг устанавливаем значение рейтинга, где айди юзера = юзеру. а айди фильма=фильму
                )
                query.on('end',function(){
                     return res.end(
